@@ -1,188 +1,159 @@
-# Lumen 健康检查模块
+# plugins-health 健康检查插件
 
-## 功能概述
+## 项目简介
 
-- 实时/定时检测 HTTP API、MySQL、Redis、OSS/S3 等外部依赖
-- 通信权限校验（Key/Token 有效性、访问权限）
-- 请求调用日志（URI、参数、状态码、耗时、用户、IP）落库并支持检索导出
-- 路由扫描列表，自动列出所有需监控 API
-- CLI 命令与定时任务支持，异常时邮件/Slack/Webhook 告警
-- 配置文件、ServiceProvider、数据库迁移、命令、Controller、路由、中间件、Blade 管理端页面、单元与集成测试
+本项目为企业级 PHP 健康检查插件，支持 Lumen/Laravel/Laminas/Webman 等主流框架，核心无依赖、适配层解耦，支持 HTTP、MySQL、Redis、OSS/S3 等依赖检测、分级告警、事件通知、接口自动扫描、调用日志、命令行工具等功能。适用于微服务、SaaS、企业后台等多场景健康监控。
 
-## 安装
+---
 
-1. **通过 Composer 安装依赖**
+## 配置项说明
 
-   ```bash
-   composer require guhealth/lumen-health
-   -- 开发模式安装
-   composer require ycgame/plugins-health:@dev --dev --prefer-stable
-   ```
-
-2. **发布配置和迁移**
-
-   ```bash
-   php artisan vendor:publish --provider="App\Providers\HealthServiceProvider" --tag=config
-   php artisan migrate
-   ```
-
-3. **注册 ServiceProvider**
-
-   在 `bootstrap/app.php` 添加：
-
-   ```php
-   $app->register(App\Providers\HealthServiceProvider::class);
-   ```
-
-4. **中间件注册**
-
-   在 `bootstrap/app.php` 注册调用日志中间件：
-
-   ```php
-   $app->middleware([
-       App\Http\Middleware\HealthLogMiddleware::class,
-   ]);
-   ```
-
-## 配置说明
-
-编辑 `config/health.php`，示例：
+`config/health.php` 示例：
 
 ```php
 return [
     'enabled' => true,
     'services' => [
         [
-            'type' => 'db',
+            'check' => \Health\Core\Health::MYSQL,
             'name' => 'mysql',
-            'connection' => 'mysql',
+            'host' => '127.0.0.1',
+            'port' => 3306,
+            'database' => 'test',
+            'username' => 'root',
+            'password' => '',
+            'require' => \Health\Core\Health::REQUIRE_CRITICAL, // 依赖级别
             'timeout' => 2,
+            // 'event' => MyHealthEvent::class, // 可选，事件类名
         ],
         [
-            'type' => 'redis',
+            'check' => \Health\Core\Health::REDIS,
             'name' => 'redis',
-            'connection' => 'default',
+            'host' => '127.0.0.1',
+            'port' => 6379,
+            'require' => \Health\Core\Health::REQUIRE_REQUIRED,
             'timeout' => 2,
         ],
         [
-            'type' => 'oss',
-            'name' => 'oss',
-            'access_key' => env('OSS_ACCESS_KEY'),
-            'secret_key' => env('OSS_SECRET_KEY'),
-            'bucket' => env('OSS_BUCKET'),
-            'endpoint' => env('OSS_ENDPOINT'),
-            'timeout' => 3,
-        ],
-        [
-            'type' => 'http',
+            'check' => \Health\Core\Health::HTTP,
             'name' => 'external-api',
             'url' => 'https://api.example.com/health',
             'method' => 'GET',
-            'headers' => [],
             'timeout' => 3,
-            'auth' => [
-                'type' => 'token',
-                'key' => env('API_TOKEN'),
-            ],
+            'require' => \Health\Core\Health::REQUIRE_OPTIONAL,
         ],
-    ],
-    'routes' => [
-        'include' => [],
-        'exclude' => [],
+        // ...
     ],
     'log' => [
         'table' => 'health_call_logs',
         'retention_days' => 30,
     ],
-    'alert' => [
-        'mail' => [
-            'enabled' => false,
-            'to' => env('HEALTH_ALERT_MAIL_TO'),
-        ],
-        'slack' => [
-            'enabled' => false,
-            'webhook_url' => env('HEALTH_ALERT_SLACK_WEBHOOK'),
-        ],
-        'webhook' => [
-            'enabled' => false,
-            'url' => env('HEALTH_ALERT_WEBHOOK_URL'),
-        ],
-        'threshold' => [
-            'down' => 1,
-            'timeout' => 3,
-        ],
-    ],
+    // 全局事件（可选）
+    // 'event' => MyHealthEvent::class,
 ];
 ```
 
-## 路由与接口
+### 依赖级别常量
 
-- `GET /health/status`：获取所有服务健康状态
-- `GET /health/logs`：调用日志分页查询，支持 service/status/时间筛选
+- `Health::REQUIRE_CRITICAL`：系统核心依赖
+- `Health::REQUIRE_REQUIRED`：业务主流程依赖（默认）
+- `Health::REQUIRE_OPTIONAL`：可选依赖
+- `Health::REQUIRE_EXTERNAL`：外部第三方依赖
 
-## 管理端页面
+### 事件机制
 
-- 访问 `resources/views/health.blade.php`，或集成到自定义后台
-- 实时健康状态面板、接口列表、日志筛选与导出
+- 实现 `HealthEventInterface`，如：
+  ```php
+  class MyHealthEvent implements HealthEventInterface {
+      public function success($status) { ... }
+      public function wrong($status) { ... }
+      public function error($status) { ... }
+      public function danger($status) { ... }
+  }
+  ```
+- 配置项可全局或单项指定 'event' => MyHealthEvent::class
 
-## CLI 命令与定时任务
+---
 
-- 手动检测：`php artisan health:check`
-- 批量入库：`php artisan health:check --report`
-- 可加入 crontab 定时执行，异常时自动告警
+## 核心实现逻辑
 
-## 告警配置
+- **解耦架构**：核心逻辑（Orchestrator/Checker/Inspection/HealthStatus）无框架依赖，适配层负责注册、路由、命令等集成。
+- **Checker**：每种依赖类型实现独立 Checker，支持 PDO/Redis/Predis/HTTP/OSS 等多种方式。
+- **Orchestrator**：统一调度所有检查项，支持批量/单项检查、超时、分级、事件通知。
+- **事件机制**：支持 success/wrong/error/danger 四种事件，自动分派，便于自定义告警、日志、通知等。
+- **接口自动扫描**：各框架适配层均支持路由自动扫描，支持 controller/action 拆分、全局/路由中间件展示。
+- **命令行工具**：各框架均有 health:check、health:routes 命令，便于运维和自动化。
 
-- 支持邮件、Slack、Webhook，详见 `config/health.php` 的 `alert` 配置
-- 实现告警逻辑请补充 `HealthCheckCommand` 中的 TODO 部分
+---
 
-## 单元与集成测试
+## Lumen 项目集成与使用
 
-- 运行所有测试：
+### 1. 安装
 
-  ```bash
-  ./vendor/bin/phpunit
+- 在主项目 composer.json repositories 字段添加 vcs 仓库（如自建 GitLab）：
+  ```json
+  "repositories": [
+    {
+        "type": "git",
+        "url": "https://git.ycgame.com/ycgame/General-Framework-Background-Operations/plug_health.git"
+    }
+  ]
+  ```
+- 安装依赖：
+```shell
+#开发模式
+composer require ycgame/plugins-health:@dev --dev
+
+#常规安装使用
+composer require ycgame/plugins-health:1.0.1
+```
+
+### 2. 注册服务与配置
+
+- 在 `bootstrap/app.php` 添加：
+  ```php
+  $app->register(Health\Bridge\Lumen\HealthServiceProvider::class);
+  $app->configure('health');
+  // 可选：注册日志中间件
+  $app->middleware([
+      Health\Bridge\Lumen\HealthLogMiddleware::class,
+  ]);
   ```
 
-- 测试覆盖 Checker、Manager、Controller、命令、Middleware
+### 3. 路由自动注册
 
-## 常见 Q&A
+- HealthServiceProvider 已自动注册 /health/status、/health/logs、/health/routes 路由，无需手动 require 路由文件。
 
-- **Q: 如何扩展新的健康检查类型？**  
-  A: 实现 `HealthCheckerInterface` 并在配置中添加 type。
+### 4. 配置 health.php
 
-- **Q: 如何自定义日志表结构？**  
-  A: 修改迁移文件和 `config/health.php` 的 `log.table`。
+- 编辑 `config/health.php`，按需添加服务项、依赖级别、事件等。
 
-- **Q: 如何集成到现有 RBAC？**  
-  A: 日志中已记录 user 字段，前端可结合现有权限系统。
+### 5. 运行/访问
 
-- **Q: 如何导出日志？**  
-  A: 管理端页面支持一键导出 CSV。
+- 访问 `http://localhost:8000/health/status` 查看健康检查结果。
+- 访问 `http://localhost:8000/health/routes` 查看所有接口列表。
+- 运行 `php artisan health:check` 检查所有依赖。
+- 运行 `php artisan health:routes` 列出所有路由。
 
-## 目录结构
+### 6. 日志与事件
 
-```
-config/health.php
-app/Providers/HealthServiceProvider.php
-app/Services/HealthManager.php
-app/Services/Checker/
-app/Http/Controllers/HealthController.php
-app/Http/Middleware/HealthLogMiddleware.php
-app/Console/Commands/HealthCheckCommand.php
-routes/health.php
-database/migrations/xxxx_xx_xx_create_health_call_logs_table.php
-resources/views/health.blade.php
-tests/
-README.md
-```
+- 检查日志自动落库到 `health_call_logs` 表（需执行 migration）。
+- 事件机制支持全局和单项自定义，便于分级告警和业务扩展。
 
-## 依赖
+---
 
-- Lumen 8.x+
-- guzzlehttp/guzzle
-- 可选：aws/aws-sdk-php 或 aliyuncs/oss-sdk-php
+## 典型用例与扩展
 
-## 贡献
+- 支持多环境/多服务健康检查，适用于微服务、SaaS、企业后台等场景。
+- 可扩展自定义 Checker、事件、告警、日志等。
+- 支持多框架适配，核心逻辑完全解耦，便于维护和二次开发。
 
-欢迎 issue 和 PR！
+---
+
+## 生产环境安装说明
+
+- 推荐通过公司自建 GitLab/VCS 仓库集成，无需发布到 Packagist。
+- 生产环境只需 require 必要依赖，开发/测试时可 require-dev 所有适配层依赖。
+- 详细安装方式见上文。
+
+

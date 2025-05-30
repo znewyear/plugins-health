@@ -16,7 +16,6 @@ class LumenOrchestratorTest extends TestCase
         $app = require $bootstrap;
         $app->register(HealthServiceProvider::class);
         $app->configure('health');
-        require __DIR__ . '/../../src/Bridge/Lumen/routes.php';
         return $app;
     }
 

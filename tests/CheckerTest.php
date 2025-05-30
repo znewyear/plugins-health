@@ -1,63 +1,70 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use Health\Services\Checker\DbChecker;
-use Health\Services\Checker\RedisChecker;
-use Health\Services\Checker\OssChecker;
-use Health\Services\Checker\HttpChecker;
-use Health\Services\Checker\HealthResult;
+use Health\Core\Checker\DbChecker;
+use Health\Core\Checker\RedisChecker;
+use Health\Core\Checker\OssChecker;
+use Health\Core\Checker\HttpChecker;
+use Health\Core\HealthStatus;
+use Health\Core\Inspection;
 
 class CheckerTest extends TestCase
 {
     public function testDbCheckerUp()
     {
         $checker = new DbChecker();
-        $result = $checker->check([
+        $result = new HealthStatus(new Inspection(['name' => 'mysql']));
+        $ok = $checker->check(new Inspection([
             'name' => 'mysql',
-            'connection' => 'mysql',
-            'timeout' => 2,
-        ]);
-        $this->assertInstanceOf(HealthResult::class, $result);
-        $this->assertContains($result->status, ['UP', 'DOWN']);
+            'driver' => 'mysql',
+            'host' => '127.0.0.1',
+            'port' => 3306,
+            'database' => 'test',
+            'username' => 'root',
+            'password' => '',
+        ]), $result);
+        $this->assertInstanceOf(HealthStatus::class, $result);
+        $this->assertTrue(is_bool($ok));
     }
 
     public function testRedisCheckerUp()
     {
         $checker = new RedisChecker();
-        $result = $checker->check([
+        $result = new HealthStatus(new Inspection(['name' => 'redis']));
+        $ok = $checker->check(new Inspection([
             'name' => 'redis',
-            'connection' => 'default',
-            'timeout' => 2,
-        ]);
-        $this->assertInstanceOf(HealthResult::class, $result);
-        $this->assertContains($result->status, ['UP', 'DOWN']);
+            'host' => '127.0.0.1',
+            'port' => 6379,
+        ]), $result);
+        $this->assertInstanceOf(HealthStatus::class, $result);
+        $this->assertTrue(is_bool($ok));
     }
 
     public function testOssCheckerUp()
     {
         $checker = new OssChecker();
-        $result = $checker->check([
+        $result = new HealthStatus(new Inspection(['name' => 'oss']));
+        $ok = $checker->check(new Inspection([
             'name' => 'oss',
             'access_key' => 'fake',
             'secret_key' => 'fake',
             'bucket' => 'fake',
             'endpoint' => 'fake',
-            'timeout' => 2,
-        ]);
-        $this->assertInstanceOf(HealthResult::class, $result);
-        $this->assertContains($result->status, ['UP', 'DOWN']);
+        ]), $result);
+        $this->assertInstanceOf(HealthStatus::class, $result);
+        $this->assertTrue(is_bool($ok));
     }
 
     public function testHttpCheckerUp()
     {
         $checker = new HttpChecker();
-        $result = $checker->check([
+        $result = new HealthStatus(new Inspection(['name' => 'http']));
+        $ok = $checker->check(new Inspection([
             'name' => 'http',
             'url' => 'https://httpbin.org/get',
             'method' => 'GET',
-            'timeout' => 2,
-        ]);
-        $this->assertInstanceOf(HealthResult::class, $result);
-        $this->assertContains($result->status, ['UP', 'DOWN']);
+        ]), $result);
+        $this->assertInstanceOf(HealthStatus::class, $result);
+        $this->assertTrue(is_bool($ok));
     }
 }

@@ -1,8 +1,10 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use Health\Services\HealthManager;
-use Health\Services\Checker\HealthResult;
+use Health\Core\HealthOrchestrator;
+use Health\Core\Config;
+use Health\Core\HealthStatus;
+use Health\Core\Inspection;
 
 class HealthManagerTest extends TestCase
 {
@@ -11,23 +13,21 @@ class HealthManagerTest extends TestCase
         $config = [
             'services' => [
                 [
-                    'check' => \Health\Services\Health::HTTP,
+                    'check' => \Health\Core\Health::HTTP,
                     'name' => 'http',
                     'url' => 'https://httpbin.org/get',
                     'method' => 'GET',
                     'timeout' => 2,
                 ],
             ],
-            'log' => [
-                'table' => 'health_call_logs',
-            ],
         ];
-        $manager = new HealthManager(null, $config);
-        $results = $manager->checkAll(false);
+        $orchestrator = new HealthOrchestrator(new Config($config), function($class) {
+            return new $class();
+        });
+        $results = $orchestrator->checkAll(false);
         $this->assertIsArray($results);
-        $this->assertArrayHasKey('status', $results[0]);
-        $this->assertContains($results[0]['status'], ['UP', 'DOWN']);
+        $this->assertNotEmpty($results);
+        $this->assertInstanceOf(HealthStatus::class, $results[0]);
+        $this->assertContains($results[0]->status, ['UP', 'DOWN']);
     }
-
-    // batch模式需依赖 DB Facade，独立包测试环境下跳过
 }
