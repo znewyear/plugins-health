@@ -90,15 +90,6 @@ return [
 
 ### 1. 安装
 
-- 在主项目 composer.json repositories 字段添加 vcs 仓库（如自建 GitLab）：
-  ```json
-  "repositories": [
-    {
-        "type": "git",
-        "url": "https://git.ycgame.com/ycgame/General-Framework-Background-Operations/plug_health.git"
-    }
-  ]
-  ```
 - 安装依赖：
 ```shell
 composer require newyear/plugins-health
