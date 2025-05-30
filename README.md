@@ -101,11 +101,7 @@ return [
   ```
 - 安装依赖：
 ```shell
-#开发模式
-composer require ycgame/plugins-health:@dev --dev
-
-#常规安装使用
-composer require ycgame/plugins-health:1.0.1
+composer require newyear/plugins-health
 ```
 
 ### 2. 注册服务与配置
@@ -130,8 +126,8 @@ composer require ycgame/plugins-health:1.0.1
 
 ### 5. 运行/访问
 
-- 访问 `http://localhost:8000/health/status` 查看健康检查结果。
-- 访问 `http://localhost:8000/health/routes` 查看所有接口列表。
+- 访问 `/health/status` 查看健康检查结果。
+- 访问 `/health/routes` 查看所有接口列表。
 - 运行 `php artisan health:check` 检查所有依赖。
 - 运行 `php artisan health:routes` 列出所有路由。
 

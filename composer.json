@@ -1,6 +1,6 @@
 {
-  "name": "ycgame/plugins-health",
-  "description": "Lumen/Laravel 可插拔健康检查模块，支持 HTTP、MySQL、Redis、OSS/S3 等依赖检测与告警",
+  "name": "newyear/plugins-health",
+  "description": "可插拔健康检查模块，支持 HTTP、MySQL、Redis、OSS/S3 等依赖检测与告警",
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -25,7 +25,6 @@
     "orchestra/testbench": "^7.0.0"
   },
   "suggest": {
-    "aws/aws-sdk-php": "用于 AWS S3 检查",
     "aliyuncs/oss-sdk-php": "用于阿里云 OSS 检查",
     "illuminate/support": "Laravel/Lumen 适配层",
     "laminas/laminas-mvc": "Laminas 适配层",
@@ -48,6 +47,11 @@
   },
   "extra": {
     "laravel": {
+      "providers": [
+        "Src\\Providers\\HealthServiceProvider"
+      ]
+    },
+    "lumen": {
       "providers": [
         "Src\\Providers\\HealthServiceProvider"
       ]
