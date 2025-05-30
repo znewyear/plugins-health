@@ -1,12 +1,14 @@
 {
   "name": "newyear/plugins-health",
   "description": "可插拔健康检查模块，支持 HTTP、MySQL、Redis、OSS/S3 等依赖检测与告警",
+  "keywords": ["health","newyear", "check"],
   "type": "library",
   "license": "MIT",
+  "homepage": "https://github.com/znewyear/plugins-health",
   "authors": [
     {
-      "name": "GuHealth",
-      "email": "opensource@guhealth.com"
+      "name": "newyear",
+      "email": "zxnnewyear@gmail.com"
     }
   ],
   "require": {
